@@ -17,15 +17,15 @@ open class SCFullscreenPopGesture {
     
     open class func configure() {
         
-        UINavigationController.sh_nav_initialize()
-        UIViewController.sh_initialize()
+        UINavigationController.sc_nav_initialize()
+        UIViewController.sc_initialize()
     }
     
 }
 
 extension UINavigationController {
     
-    private var sh_popGestureRecognizerDelegate: _SCFullscreenPopGestureRecognizerDelegate {
+    private var sc_popGestureRecognizerDelegate: _SCFullscreenPopGestureRecognizerDelegate {
         guard let delegate = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_popGestureRecognizerDelegate!) as? _SCFullscreenPopGestureRecognizerDelegate else {
             let popDelegate = _SCFullscreenPopGestureRecognizerDelegate()
             popDelegate.navigationController = self
@@ -35,11 +35,11 @@ extension UINavigationController {
         return delegate
     }
     
-    open class func sh_nav_initialize() {
+    open class func sc_nav_initialize() {
         // Inject "-pushViewController:animated:"
         DispatchQueue.once(token: "com.UINavigationController.MethodSwizzling", block: {
             let originalMethod = class_getInstanceMethod(self, #selector(pushViewController(_:animated:)))
-            let swizzledMethod = class_getInstanceMethod(self, #selector(sh_pushViewController(_:animated:)))
+            let swizzledMethod = class_getInstanceMethod(self, #selector(sc_pushViewController(_:animated:)))
             method_exchangeImplementations(originalMethod!, swizzledMethod!)
         })
     }
@@ -48,25 +48,25 @@ extension UINavigationController {
 //        // Inject "-pushViewController:animated:"
 //        DispatchQueue.once(token: "com.UINavigationController.MethodSwizzling", block: {
 //            let originalMethod = class_getInstanceMethod(self, #selector(pushViewController(_:animated:)))
-//            let swizzledMethod = class_getInstanceMethod(self, #selector(sh_pushViewController(_:animated:)))
+//            let swizzledMethod = class_getInstanceMethod(self, #selector(sc_pushViewController(_:animated:)))
 //            method_exchangeImplementations(originalMethod!, swizzledMethod!)
 //        })
 //    }
     
-    @objc private func sh_pushViewController(_ viewController: UIViewController, animated: Bool) {
+    @objc private func sc_pushViewController(_ viewController: UIViewController, animated: Bool) {
         
-        if self.interactivePopGestureRecognizer?.view?.gestureRecognizers?.contains(self.sh_fullscreenPopGestureRecognizer) == false {
+        if self.interactivePopGestureRecognizer?.view?.gestureRecognizers?.contains(self.sc_fullscreenPopGestureRecognizer) == false {
             
             // Add our own gesture recognizer to where the onboard screen edge pan gesture recognizer is attached to.
-            self.interactivePopGestureRecognizer?.view?.addGestureRecognizer(self.sh_fullscreenPopGestureRecognizer)
+            self.interactivePopGestureRecognizer?.view?.addGestureRecognizer(self.sc_fullscreenPopGestureRecognizer)
             
             // Forward the gesture events to the private handler of the onboard gesture recognizer.
             let internalTargets = self.interactivePopGestureRecognizer?.value(forKey: "targets") as? Array<NSObject>
             let internalTarget = internalTargets?.first?.value(forKey: "target")
             let internalAction = NSSelectorFromString("handleNavigationTransition:")
             if let target = internalTarget {
-                self.sh_fullscreenPopGestureRecognizer.delegate = self.sh_popGestureRecognizerDelegate
-                self.sh_fullscreenPopGestureRecognizer.addTarget(target, action: internalAction)
+                self.sc_fullscreenPopGestureRecognizer.delegate = self.sc_popGestureRecognizerDelegate
+                self.sc_fullscreenPopGestureRecognizer.addTarget(target, action: internalAction)
                 
                 // Disable the onboard gesture recognizer.
                 self.interactivePopGestureRecognizer?.isEnabled = false
@@ -74,36 +74,36 @@ extension UINavigationController {
         }
         
         // Handle perferred navigation bar appearance.
-        self.sh_setupViewControllerBasedNavigationBarAppearanceIfNeeded(viewController)
+        self.sc_setupViewControllerBasedNavigationBarAppearanceIfNeeded(viewController)
         
         // Forward to primary implementation.
-        self.sh_pushViewController(viewController, animated: animated)
+        self.sc_pushViewController(viewController, animated: animated)
     }
     
-    private func sh_setupViewControllerBasedNavigationBarAppearanceIfNeeded(_ appearingViewController: UIViewController) {
+    private func sc_setupViewControllerBasedNavigationBarAppearanceIfNeeded(_ appearingViewController: UIViewController) {
         
-        if !self.sh_viewControllerBasedNavigationBarAppearanceEnabled {
+        if !self.sc_viewControllerBasedNavigationBarAppearanceEnabled {
             return
         }
         
         let blockContainer = _SCViewControllerWillAppearInjectBlockContainer() { [weak self] (_ viewController: UIViewController, _ animated: Bool) -> Void in
-            self?.setNavigationBarHidden(viewController.sh_prefersNavigationBarHidden, animated: animated)
+            self?.setNavigationBarHidden(viewController.sc_prefersNavigationBarHidden, animated: animated)
         }
         
         // Setup will appear inject block to appearing view controller.
         // Setup disappearing view controller as well, because not every view controller is added into
         // stack by pushing, maybe by "-setViewControllers:".
-        appearingViewController.sh_willAppearInjectBlockContainer = blockContainer
+        appearingViewController.sc_willAppearInjectBlockContainer = blockContainer
         let disappearingViewController = self.viewControllers.last
         if let vc = disappearingViewController {
-            if vc.sh_willAppearInjectBlockContainer == nil {
-                vc.sh_willAppearInjectBlockContainer = blockContainer
+            if vc.sc_willAppearInjectBlockContainer == nil {
+                vc.sc_willAppearInjectBlockContainer = blockContainer
             }
         }
     }
     
     /// The gesture recognizer that actually handles interactive pop.
-    public var sh_fullscreenPopGestureRecognizer: UIPanGestureRecognizer {
+    public var sc_fullscreenPopGestureRecognizer: UIPanGestureRecognizer {
         guard let pan = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_fullscreenPopGestureRecognizer!) as? UIPanGestureRecognizer else {
             let panGesture = UIPanGestureRecognizer()
             panGesture.maximumNumberOfTouches = 1;
@@ -117,10 +117,10 @@ extension UINavigationController {
     /// A view controller is able to control navigation bar's appearance by itself,
     /// rather than a global way, checking "fd_prefersNavigationBarHidden" property.
     /// Default to true, disable it if you don't want so.
-    public var sh_viewControllerBasedNavigationBarAppearanceEnabled: Bool {
+    public var sc_viewControllerBasedNavigationBarAppearanceEnabled: Bool {
         get {
             guard let bools = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_viewControllerBasedNavigationBarAppearanceEnabled!) as? Bool else {
-                self.sh_viewControllerBasedNavigationBarAppearanceEnabled = true
+                self.sc_viewControllerBasedNavigationBarAppearanceEnabled = true
                 return true
             }
             return bools
@@ -142,7 +142,7 @@ fileprivate class _SCViewControllerWillAppearInjectBlockContainer {
 
 extension UIViewController {
     
-    fileprivate var sh_willAppearInjectBlockContainer: _SCViewControllerWillAppearInjectBlockContainer? {
+    fileprivate var sc_willAppearInjectBlockContainer: _SCViewControllerWillAppearInjectBlockContainer? {
         get {
             return objc_getAssociatedObject(self, RuntimeKey.KEY_sh_willAppearInjectBlockContainer!) as? _SCViewControllerWillAppearInjectBlockContainer
         }
@@ -151,11 +151,11 @@ extension UIViewController {
         }
     }
     
-    open class func sh_initialize() {
+    open class func sc_initialize() {
         
         DispatchQueue.once(token: "com.UIViewController.MethodSwizzling", block: {
             let originalMethod = class_getInstanceMethod(self, #selector(viewWillAppear(_:)))
-            let swizzledMethod = class_getInstanceMethod(self, #selector(sh_viewWillAppear(_:)))
+            let swizzledMethod = class_getInstanceMethod(self, #selector(sc_viewWillAppear(_:)))
             method_exchangeImplementations(originalMethod!, swizzledMethod!)
         })
     }
@@ -164,22 +164,22 @@ extension UIViewController {
 //
 //        DispatchQueue.once(token: "com.UIViewController.MethodSwizzling", block: {
 //            let originalMethod = class_getInstanceMethod(self, #selector(viewWillAppear(_:)))
-//            let swizzledMethod = class_getInstanceMethod(self, #selector(sh_viewWillAppear(_:)))
+//            let swizzledMethod = class_getInstanceMethod(self, #selector(sc_viewWillAppear(_:)))
 //            method_exchangeImplementations(originalMethod!, swizzledMethod!)
 //        })
 //    }
     
-    @objc private func sh_viewWillAppear(_ animated: Bool) {
+    @objc private func sc_viewWillAppear(_ animated: Bool) {
         // Forward to primary implementation.
-        self.sh_viewWillAppear(animated)
+        self.sc_viewWillAppear(animated)
         
-        if let block = self.sh_willAppearInjectBlockContainer?.block {
+        if let block = self.sc_willAppearInjectBlockContainer?.block {
             block(self, animated)
         }
     }
     
     /// Whether the interactive pop gesture is disabled when contained in a navigation stack.
-    public var sh_interactivePopDisabled: Bool {
+    public var sc_interactivePopDisabled: Bool {
         get {
             guard let bools = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_interactivePopDisabled!) as? Bool else {
                 return false
@@ -194,7 +194,7 @@ extension UIViewController {
     /// Indicate this view controller prefers its navigation bar hidden or not,
     /// checked when view controller based navigation bar's appearance is enabled.
     /// Default to false, bars are more likely to show.
-    public var sh_prefersNavigationBarHidden: Bool {
+    public var sc_prefersNavigationBarHidden: Bool {
         get {
             guard let bools = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_prefersNavigationBarHidden!) as? Bool else {
                 return false
@@ -208,7 +208,7 @@ extension UIViewController {
     
     /// Max allowed initial distance to left edge when you begin the interactive pop
     /// gesture. 0 by default, which means it will ignore this limit.
-    public var sh_interactivePopMaxAllowedInitialDistanceToLeftEdge: Double {
+    public var sc_interactivePopMaxAllowedInitialDistanceToLeftEdge: Double {
         get {
             guard let doubleNum = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_interactivePopMaxAllowedInitialDistanceToLeftEdge!) as? Double else {
                 return 0.0
@@ -240,7 +240,7 @@ private class _SCFullscreenPopGestureRecognizerDelegate: NSObject, UIGestureReco
         guard let topViewController = navigationC.viewControllers.last else {
             return false
         }
-        guard !topViewController.sh_interactivePopDisabled else {
+        guard !topViewController.sc_interactivePopDisabled else {
             return false
         }
         
@@ -258,7 +258,7 @@ private class _SCFullscreenPopGestureRecognizerDelegate: NSObject, UIGestureReco
         
         // Ignore when the beginning location is beyond max allowed initial distance to left edge.
         let beginningLocation = panGesture.location(in: panGesture.view)
-        let maxAllowedInitialDistance = topViewController.sh_interactivePopMaxAllowedInitialDistanceToLeftEdge
+        let maxAllowedInitialDistance = topViewController.sc_interactivePopMaxAllowedInitialDistanceToLeftEdge
         guard maxAllowedInitialDistance <= 0 || Double(beginningLocation.x) <= maxAllowedInitialDistance else {
             return false
         }
@@ -304,7 +304,7 @@ extension UIScrollView: UIGestureRecognizerDelegate {
                 
     }
     
-    public var sh_scrollViewPopGestureRecognizerEnable: Bool {
+    public var sc_scrollViewPopGestureRecognizerEnable: Bool {
         get {
             guard let bools = objc_getAssociatedObject(self, RuntimeKey.KEY_sh_scrollViewPopGestureRecognizerEnable!) as? Bool else {
                 return false
@@ -353,7 +353,7 @@ extension UIScrollView: UIGestureRecognizerDelegate {
     }
 
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        if self.sh_scrollViewPopGestureRecognizerEnable, self.contentOffset.x <= 0, let gestureDelegate = otherGestureRecognizer.delegate {
+        if self.sc_scrollViewPopGestureRecognizerEnable, self.contentOffset.x <= 0, let gestureDelegate = otherGestureRecognizer.delegate {
             if gestureDelegate.isKind(of: _SCFullscreenPopGestureRecognizerDelegate.self) {
                 return true
             }
